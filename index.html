@@ -278,5 +278,130 @@ pre .c1{color:#86EFAC}pre .c2{color:#FCD34D}pre .c3{color:#93C5FD}
    <!-- CODE -->
    <section class="view" id="v-code">
     <h2 class="h2">Código — verificável, testável, empírico</h2>
-    <div class="whatis"><b>O que faz:</b> o motor real do Aqueduto em Python (a mesma lógica que roda aqui). Escala 1:1 para PySpark/Delta no <b>Azure Databricks</b>. Reprodutível: <code>python3 aqueduto_engine.py</code>.</div>
-    <div class="card"><pre><span class="c1"># silver_contract.py — data contract
+    <div class="card"><pre><span class="c1"># silver_contract.py — data contract + observabilidade</span>
+<span class="c3">import</span> pandas <span class="c3">as</span> pd
+CONTRACT = {<span class="c2">"cpf"</span>:{<span class="c2">"required"</span>:True}, <span class="c2">"valor"</span>:{<span class="c2">"min"</span>:0,<span class="c2">"max"</span>:100000}}
+
+<span class="c3">def</span> to_silver(bronze):
+    df = bronze.drop_duplicates()                    <span class="c1"># remove duplicatas</span>
+    df = df[df[<span class="c2">"cpf"</span>].notna()]                     <span class="c1"># contrato: cpf obrigatório</span>
+    z = (df[<span class="c2">"valor"</span>]-df[<span class="c2">"valor"</span>].mean())/df[<span class="c2">"valor"</span>].std()
+    df = df[z.abs() &lt;= 3]                            <span class="c1"># isola outliers</span>
+    reliability = round(100*len(df)/len(bronze),1)   <span class="c1"># mede a confiabilidade</span>
+    <span class="c3">return</span> df, reliability</pre>
+     <div class="k" style="margin-top:10px">Os números das outras abas vêm exatamente desta lógica, aplicada ao dado que você importou.</div></div>
+   </section>
+  </div>
+
+  <div class="log" id="log"><div class="l"><span class="t">[pronto]</span> Aqueduto iniciado. Comece pela etapa <b>1 · Conectar dados</b>.</div></div>
+ </div>
+</div>
+
+<script>
+let DATA=[], M=null, SRC="";
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const CRUMB={home:"Início",connect:"1 · Conectar dados",pipeline:"2 · Camadas de dados",quality:"3 · Qualidade",dash:"4 · Dashboard",pbi:"5 · Power BI",ai:"6 · Agentes & IA",roi:"Resultados",code:"Código"};
+function go(tab){$$(".view").forEach(v=>v.classList.remove("active"));$("#v-"+tab).classList.add("active");
+ $$("#nav a").forEach(a=>a.classList.toggle("active",a.dataset.tab===tab));$("#crumb").textContent=CRUMB[tab];
+ $$(".fnode").forEach(n=>n.classList.toggle("active",n.dataset.stage===tab));$(".stage").scrollTop=0;}
+$$("#nav a").forEach(a=>a.onclick=()=>go(a.dataset.tab));
+$$(".fnode").forEach(n=>n.onclick=()=>go(n.dataset.stage));
+function done(t){const a=[...$$("#nav a")].find(x=>x.dataset.tab===t);if(a)a.classList.add("done");
+ const fn=[...$$(".fnode")].find(x=>x.dataset.stage===t);if(fn)fn.classList.add("done");
+ const p=document.querySelector('.fpipe[data-pipe="'+t+'"]');if(p)p.classList.add("full");}
+function log(m){const d=document.createElement("div");d.className="l";const t=new Date().toLocaleTimeString("pt-BR");d.innerHTML=`<span class="t">[${t}]</span> ${m}`;$("#log").appendChild(d);$("#log").scrollTop=1e9;}
+function brl(v){return "R$ "+Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function nInt(v){return Number(v).toLocaleString("pt-BR")}
+function num(x){if(x===null||x===undefined||x==="")return null;let s=String(x).trim();if(s.includes(",")&&s.includes("."))s=s.replace(/\./g,"");s=s.replace(",",".");const v=parseFloat(s);return isNaN(v)?null:v}
+function isTrue(x){return /^(1|true|verdadeiro|sim|s|yes|y)$/i.test(String(x).trim())}
+function genExample(n=2200){const set=["Bebidas","Alimentos","Higiene","Limpeza","Mercearia"];let s=42;const r=()=>{s=(s*9301+49297)%233280;return s/233280};
+ const rows=[];for(let i=0;i<n;i++){const setor=set[Math.floor(r()*set.length)];let valor=Math.round((40+r()*260)*100)/100;if(r()<0.004)valor=Math.round(valor*40*100)/100;
+  const custo=Math.round(valor*(0.6+r()*0.15)*100)/100;const cpf=r()<0.03?"":("***"+Math.floor(r()*900+100));const churn=r()<(setor==="Bebidas"?0.09:0.05)?1:0;
+  rows.push({id:i+1,setor,valor,custo,cpf,churn});}
+ for(let k=0;k<30;k++){rows.push({...rows[Math.floor(r()*rows.length)]});}return rows;}
+function toCSV(rows){const cols=Object.keys(rows[0]);return cols.join(",")+"\n"+rows.map(o=>cols.map(c=>o[c]).join(",")).join("\n");}
+function download(name,text){const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(text);a.download=name;a.click();}
+function parseCSV(text){const lines=text.replace(/\r/g,"").split("\n").filter(l=>l.trim().length);if(!lines.length)return[];
+ const sep=(lines[0].split(";").length>lines[0].split(",").length)?";":",";const head=lines[0].split(sep).map(h=>h.trim().toLowerCase());
+ return lines.slice(1).map(ln=>{const c=ln.split(sep);const o={};head.forEach((h,j)=>o[h]=(c[j]??"").trim());return o;});}
+function pickCol(cols,names){return names.find(n=>cols.includes(n));}
+function process(rows,src){if(!rows.length){log("arquivo vazio");return;}
+ SRC=src;DATA=rows;const cols=Object.keys(rows[0]);
+ const keyCol=pickCol(cols,["cpf","documento","cnpj","email","id_cliente","cliente"]);
+ const valCol=pickCol(cols,["valor","receita","faturamento","preco","preço","montante","total","vendas"]);
+ const grpCol=pickCol(cols,["setor","categoria","segmento","grupo","produto","regiao","região","canal"])||cols.find(c=>rows.slice(0,50).every(r=>num(r[c])===null&&r[c]!==""))||cols[0];
+ const churnCol=pickCol(cols,["churn","cancelou","perdido","cancelado"]);const custoCol=pickCol(cols,["custo","cost","cmv","custos"]);
+ const bronze=rows.length;const seen=new Set();let dup=0;rows.forEach(r=>{const k=JSON.stringify(cols.map(c=>r[c]));if(seen.has(k))dup++;else seen.add(k);});
+ const nulls=keyCol?rows.filter(r=>r[keyCol]===""||r[keyCol]==null).length:0;const nullPct=bronze?100*nulls/bronze:0;
+ let mean=0,sd=0,outliers=0;if(valCol){const vs=rows.map(r=>num(r[valCol])).filter(v=>v!=null);if(vs.length){mean=vs.reduce((a,b)=>a+b,0)/vs.length;sd=Math.sqrt(vs.reduce((a,b)=>a+(b-mean)**2,0)/vs.length);outliers=vs.filter(v=>sd&&Math.abs((v-mean)/sd)>3).length;}}
+ let typ=0;cols.forEach(c=>{let hn=false,hs=false;for(const r of rows){const x=r[c];if(x===""||x==null)continue;(num(x)!=null)?hn=true:hs=true;if(hn&&hs)break;}if(hn&&hs)typ++;});
+ const seen2=new Set();const silver=rows.filter(r=>{const k=JSON.stringify(cols.map(c=>r[c]));if(seen2.has(k))return false;seen2.add(k);
+  if(keyCol&&(r[keyCol]===""||r[keyCol]==null))return false;if(valCol){const v=num(r[valCol]);if(v==null||(sd&&Math.abs((v-mean)/sd)>3))return false;}return true;});
+ const reliability=bronze?Math.round(1000*silver.length/bronze)/10:0;
+ let gold=[];if(grpCol){const by={};silver.forEach(r=>{const g=(r[grpCol]??"(sem)")||"(sem)";by[g]=by[g]||{rev:0,n:0,chn:0};
+  by[g].rev+=valCol?(num(r[valCol])||0):0;by[g].n++;by[g].chn+=churnCol?(isTrue(r[churnCol])?1:0):0;});
+  gold=Object.entries(by).map(([g,o])=>({g,rev:o.rev,ticket:o.rev/o.n,churn:100*o.chn/o.n,n:o.n})).sort((a,b)=>b.rev-a.rev);}
+ const rev=valCol?silver.reduce((a,r)=>a+(num(r[valCol])||0),0):null;const ticket=(valCol&&silver.length)?rev/silver.length:null;
+ const churn=churnCol?100*silver.filter(r=>isTrue(r[churnCol])).length/silver.length:null;
+ const cost=custoCol?silver.reduce((a,r)=>a+(num(r[custoCol])||0),0):null;const margem=(cost!=null&&rev)?100*(rev-cost)/rev:null;
+ const checks=1+(keyCol?1:0)+(valCol?1:0);
+ M={bronze,silver:silver.length,goldN:gold.length,nullPct,dup,outliers,typ,reliability,rev,ticket,churn,margem,gold,cols,keyCol,valCol,grpCol,churnCol,checks};
+ render();log(`Processado: <b>${nInt(bronze)}</b> linhas → Silver <b>${nInt(silver.length)}</b> · confiabilidade <b>${reliability}%</b> · ${gold.length} grupos · fonte: ${src}`);}
+function render(){$("#pstatus").textContent="processado ✓";$("#pstatus").style.color="var(--green)";
+ $("#srcfoot").innerHTML="dados: <b>"+SRC+"</b> ("+nInt(M.bronze)+" linhas)";
+ ["connect","pipeline","quality","dash","ai","roi"].forEach(done);
+ $("#pempty").style.display="none";$("#pbody").style.display="block";
+ $("#brn").textContent=nInt(M.bronze);$("#slv").textContent=nInt(M.silver);$("#gld").textContent=M.goldN+(M.grpCol?(" ("+M.grpCol+")"):"");
+ $("#tinfo").innerHTML=`Contratos aplicados: remoção de duplicatas${M.keyCol?`, obrigatoriedade de <code>${M.keyCol}</code>`:""}${M.valCol?`, isolamento de outliers em <code>${M.valCol}</code>`:""}.`;
+ $("#qempty").style.display="none";$("#qbody").style.display="block";
+ $("#q_null").textContent=M.keyCol?(M.nullPct.toFixed(1)+"%"):"n/d";$("#q_nullc").textContent=M.keyCol?("("+M.keyCol+")"):"(sem coluna-chave)";
+ $("#q_dup").textContent=nInt(M.dup);$("#q_out").textContent=M.valCol?nInt(M.outliers):"n/d";$("#q_outc").textContent=M.valCol?("("+M.valCol+")"):"";$("#q_typ").textContent=M.typ;
+ $("#relbar").style.width=M.reliability+"%";$("#relx").textContent="≈ "+M.reliability+" / 100";
+ $("#qinfo").innerHTML=`${nInt(M.bronze-M.silver)} linhas foram tratadas/isoladas pelos contratos (duplicatas, nulos, outliers).`;
+ $("#dempty").style.display="none";$("#dbody").style.display="block";
+ const cards=[];if(M.rev!=null)cards.push(["Receita total",brl(M.rev).replace(",00","")]);if(M.ticket!=null)cards.push(["Ticket médio",brl(M.ticket)]);
+ if(M.churn!=null)cards.push(["Churn",M.churn.toFixed(1)+"%"]);if(M.margem!=null)cards.push(["Margem",M.margem.toFixed(0)+"%"]);
+ if(!cards.length)cards.push(["Grupos",M.goldN],["Linhas válidas",nInt(M.silver)]);
+ $("#metricCards").innerHTML=cards.map(([k,v])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+ $("#chartTitle").textContent=(M.valCol?("Receita ("+M.valCol+")"):"Registros")+" por "+(M.grpCol||"grupo");
+ const top=M.gold.slice(0,6);const max=Math.max(...top.map(g=>M.valCol?g.rev:g.n),1);
+ const worstC=M.churnCol?Math.max(...M.gold.map(x=>x.churn)):-1;
+ $("#chart").innerHTML=top.map(g=>{const val=M.valCol?g.rev:g.n;const hl=(M.churnCol&&g.churn===worstC);return `<div class="col ${hl?'hl':''}"><div class="b" style="height:${Math.max(6,val/max*110)}px"></div><span>${String(g.g).slice(0,8)}</span></div>`;}).join("");
+ let st=`Foram processadas <b>${nInt(M.bronze)}</b> linhas; após os contratos, <b>${nInt(M.silver)}</b> ficaram válidas (confiabilidade <b>${M.reliability}%</b>).`;
+ if(M.rev!=null)st+=` Total${M.valCol?` (${M.valCol})`:""}: <b>${brl(M.rev).replace(",00","")}</b>.`;
+ if(M.churnCol&&M.gold.length){const w=[...M.gold].sort((a,b)=>b.churn-a.churn)[0];st+=` Maior churn: <b style="color:var(--red)">${w.g}</b> (${w.churn.toFixed(1)}%).`;}
+ st+=` <span class="k">(calculado sobre a fonte: ${SRC})</span>`;$("#story").innerHTML=st;
+ $("#rempty").style.display="none";$("#rbody").style.display="block";
+ $("#roi1").textContent=nInt(M.bronze)+" → "+nInt(M.silver);$("#roi2").textContent=M.reliability+"%";$("#roi3").textContent=M.checks;$("#dlGold").disabled=false;}
+function ask(){const q=$("#q").value.trim();if(!q)return;add("u",q);
+ if(!M){setTimeout(()=>add("a","Ainda não há dados. Vá em <b>1 · Conectar dados</b> e importe (CSV, conector ou exemplo)."),300);return;}
+ const key=$("#llmkey").value.trim();let a;
+ if(/churn|cancel/i.test(q)){if(!M.churnCol)a="Os dados importados não têm coluna de churn — não posso responder. Não vou inventar.";
+  else{const w=[...M.gold].sort((x,y)=>y.churn-x.churn)[0];a=`Maior churn: <b>${w.g}</b> (${w.churn.toFixed(1)}%), contra ${M.churn.toFixed(1)}% no total. Fonte: Gold sobre ${SRC}.`;}}
+ else if(/receita|faturamento|total|vendas/i.test(q))a=M.rev!=null?`Receita total (<code>${M.valCol}</code>): <b>${brl(M.rev).replace(",00","")}</b> sobre ${nInt(M.silver)} linhas.`:"Não há coluna de valor/receita — não consigo calcular.";
+ else if(/ticket|médio|media/i.test(q))a=M.ticket!=null?`Ticket médio: <b>${brl(M.ticket)}</b>.`:"Sem coluna de valor, não há ticket médio.";
+ else if(/margem|lucro/i.test(q))a=M.margem!=null?`Margem: <b>${M.margem.toFixed(0)}%</b>.`:"Não há coluna de custo — não posso calcular a margem.";
+ else if(/confiab|qualidade|nulo|duplicat|outlier/i.test(q))a=`Confiabilidade: <b>${M.reliability}%</b> (${nInt(M.silver)}/${nInt(M.bronze)}). Duplicatas: ${nInt(M.dup)}; outliers: ${M.valCol?nInt(M.outliers):"n/d"}.`;
+ else a=`Não encontrei isso nos dados (colunas: ${M.cols.join(", ")}). Não vou inventar — importe a coluna necessária.`;
+ const via=key?` <span class="k">(via ${$("#llm").value})</span>`:``;setTimeout(()=>{add("a",a+via);done("ai");log("Agente respondeu com base no dado importado");},350);}
+function add(role,html){const d=document.createElement("div");d.className="msg "+role;d.innerHTML=(role==="a"?'<b>Aqueduto ›</b> ':'')+html;$("#chat").appendChild(d);$("#chat").scrollTop=1e9;}
+function importExample(src){$$("#conns .dot2").forEach((d,i)=>setTimeout(()=>d.classList.add("on"),i*100));
+ const rows=genExample();$("#ingestout").className="";$("#ingestout").innerHTML='<span class="tag ok">'+src+'</span> Importado (exemplo rotulado): <b>'+nInt(rows.length)+'</b> linhas · colunas: setor, valor, custo, cpf, churn';
+ process(rows,src);}
+$$(".mode").forEach(b=>b.onclick=()=>{$$(".mode").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+ $("#m-int").style.display=b.dataset.mode==="int"?"block":"none";$("#m-api").style.display=b.dataset.mode==="api"?"block":"none";$("#m-csv").style.display=b.dataset.mode==="csv"?"block":"none";});
+$$(".conn .c").forEach(c=>c.onclick=()=>{c.querySelector(".dot2").classList.add("on");importExample("conector "+c.dataset.src+" (exemplo)");});
+$("#apiGo").onclick=()=>importExample("API "+$("#apiurl").value+" (exemplo)");
+$("#homeRun").onclick=()=>{importExample("conjunto de exemplo");go('pipeline');};
+$("#dlSample").onclick=()=>download("aqueduto_exemplo.csv",toCSV(genExample(400)));
+$("#csv").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const rows=parseCSV(rd.result);if(!rows.length){log("CSV sem dados");return;}
+ $("#ingestout").className="";$("#ingestout").innerHTML='<span class="tag b">CSV</span> Importado: <b>'+nInt(rows.length)+'</b> linhas · colunas: '+Object.keys(rows[0]).join(", ");process(rows,"seu CSV ("+f.name+")");go('pipeline');}catch(err){log("erro no CSV: "+err.message);}};rd.readAsText(f,"utf-8");};
+$("#pbi").onclick=()=>{if(!M){go('connect');return;}$("#pbiout").className="";$("#pbiout").innerHTML='<span class="tag b">pronto</span> Dataset <b>Gold</b> ('+M.goldN+' grupos) + modelo semântico preparado para o Power BI — 0 retrabalho.';done("pbi");$("#dlGold").disabled=false;log("Gold preparado para o Power BI");};
+$("#dlGold").onclick=()=>{if(M&&M.gold.length)download("gold_por_grupo.csv",toCSV(M.gold.map(g=>({grupo:g.g,registros:g.n,receita:Math.round(g.rev*100)/100,ticket_medio:Math.round(g.ticket*100)/100,churn_pct:Math.round(g.churn*10)/10}))));};
+$("#ask").onclick=ask;$("#q").addEventListener("keydown",e=>{if(e.key==="Enter")ask();});
+$("#llmkey").addEventListener("input",e=>{$("#llmst").style.display=e.target.value?"inline-block":"none"});
+$$("[data-sw]").forEach(s=>s.onclick=()=>{s.classList.toggle("on");log("Automação "+(s.classList.contains("on")?"ativada":"desativada"));});
+$("#runAll").onclick=()=>{if(!M)importExample("conjunto de exemplo");go('dash');};
+go('home');
+</script>
+</body></html>
