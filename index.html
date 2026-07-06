@@ -1,0 +1,282 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aqueduto — Hub de Dados AI-native (protótipo)</title>
+<style>
+:root{--bg:#FFFFFF;--app:#F7F8FA;--ink:#1F2937;--body:#374151;--mut:#6B7280;--line:#E5E7EB;
+ --blue:#2563EB;--blued:#1D4ED8;--bluebg:#EFF6FF;--green:#16A34A;--amber:#CA8A04;--red:#DC2626;
+ --bronze:#B45309;--silver:#64748B;--gold:#CA8A04}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--body);background:var(--app);font-size:14px}
+.app{display:flex;min-height:100vh}
+.side{width:242px;flex:0 0 242px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{padding:16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.brand h1{margin:0;font-size:17px;color:var(--ink);font-weight:800}.brand .tag{font-size:10.5px;color:var(--mut);margin-top:2px}
+.nav{padding:8px;overflow:auto;flex:1}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--body);text-decoration:none;font-size:13.5px;cursor:pointer;margin:2px 0;border-left:3px solid transparent}
+.nav a:hover{background:#F3F4F6}.nav a.active{background:var(--bluebg);color:var(--blued);font-weight:700;border-left-color:var(--blue)}
+.nav a .num{width:20px;height:20px;flex:0 0 auto;border-radius:50%;background:#EEF1F5;color:var(--mut);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.nav a.active .num{background:var(--blue);color:#fff}.nav a.done .num{background:var(--green);color:#fff}
+.nav a .dot{margin-left:auto;width:8px;height:8px;border-radius:50%;background:#D1D5DB}.nav a.done .dot{background:var(--green)}
+.nav .sep{font-size:10.5px;color:#9CA3AF;text-transform:uppercase;letter-spacing:.5px;padding:10px 10px 4px}
+.side .foot{padding:11px 16px;border-top:1px solid var(--line);font-size:10.5px;color:var(--mut)}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{display:flex;align-items:center;gap:14px;padding:11px 24px;background:var(--bg);border-bottom:1px solid var(--line)}
+.top .crumb{font-size:13px;color:var(--mut)}.top .run{margin-left:auto;display:flex;gap:10px;align-items:center}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:9px 15px;font-weight:600;cursor:pointer;font-size:13px}
+.btn:hover{background:var(--blued)}.btn.g{background:#059669}.btn.g:hover{background:#047857}
+.btn.ghost{background:#fff;border:1px solid var(--line);color:var(--body)}.btn.ghost:hover{background:#F9FAFB}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.chip{font-size:11.5px;color:var(--mut);border:1px solid var(--line);border-radius:20px;padding:3px 10px;background:#fff}
+/* ---- FLOW BAR (o aqueduto) ---- */
+.flowbar{display:flex;align-items:center;gap:0;padding:12px 24px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto}
+.fnode{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-width:78px}
+.fnode .c{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--mut);transition:.3s}
+.fnode .lab{font-size:10.5px;color:var(--mut);text-align:center;line-height:1.2;max-width:88px}
+.fnode.active .c{border-color:var(--blue);color:var(--blue);box-shadow:0 0 0 4px var(--bluebg)}
+.fnode.done .c{background:var(--blue);border-color:var(--blue);color:#fff}
+.fnode.active .lab,.fnode.done .lab{color:var(--ink);font-weight:600}
+.fpipe{flex:1;min-width:20px;height:5px;background:#EAEDF1;border-radius:3px;position:relative;top:-9px;overflow:hidden}
+.fpipe>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#60A5FA,var(--blue));transition:width .6s}
+.fpipe.full>i{width:100%}
+.stage{flex:1;overflow:auto;padding:24px}
+.view{display:none;max-width:1000px;margin:0 auto}.view.active{display:block}
+.h2{font-size:21px;margin:0 0 3px;color:var(--ink);font-weight:700}
+.io{font-size:12px;color:var(--mut);margin:0 0 14px}.io b{color:var(--blued)}
+.whatis{background:var(--bluebg);border:1px solid #DBEAFE;border-left:4px solid var(--blue);border-radius:8px;padding:10px 14px;margin:0 0 14px;font-size:13px;color:#1E3A8A}.whatis b{color:var(--blued)}
+.honest{background:#FEFCE8;border:1px solid #FDE68A;border-left:4px solid var(--amber);border-radius:8px;padding:9px 13px;margin:0 0 16px;font-size:12.5px;color:#854D0E}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h3{margin:0 0 9px;font-size:14px;color:var(--ink)}
+.k{font-size:11.5px;color:var(--mut)}.v{font-size:25px;font-weight:800;color:var(--ink)}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;color:#fff;border-radius:5px;padding:2px 8px}
+.tag.bronze{background:var(--bronze)}.tag.silver{background:var(--silver)}.tag.gold{background:var(--gold)}.tag.ok{background:var(--green)}.tag.b{background:var(--blue)}
+.muted-box{border:1.5px dashed var(--line);border-radius:10px;padding:20px;text-align:center;color:var(--mut);font-size:13px;background:#FCFCFD}
+.field{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+input,select{border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;background:#fff;color:var(--body)}
+input[type=text],input:not([type]){min-width:210px}
+.modes{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.modes button{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 13px;cursor:pointer;font-size:13px;color:var(--body)}
+.modes button.on{background:var(--bluebg);border-color:var(--blue);color:var(--blued);font-weight:700}
+.conn{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:4px}
+.conn .c{border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#fff;display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer}
+.conn .c:hover{border-color:var(--blue)} .conn .c .st{margin-left:auto;font-size:11px;color:var(--mut)}
+.dot2{width:10px;height:10px;border-radius:50%;background:#D1D5DB;flex:0 0 auto}.dot2.on{background:var(--green)}
+.bar{height:14px;background:#F1F3F5;border-radius:7px;overflow:hidden;border:1px solid var(--line)}.bar>i{display:block;height:100%;background:var(--green);transition:width .6s}
+.bars{display:flex;align-items:flex-end;gap:12px;height:130px;padding-top:8px}
+.bars .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end}
+.bars .col .b{width:66%;border-radius:5px 5px 0 0;background:var(--blue)}.bars .col.hl .b{background:var(--red)}.bars .col span{font-size:10px;color:var(--mut);text-align:center}
+.chat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;max-height:250px;overflow:auto}
+.msg{margin:7px 0;padding:9px 12px;border-radius:9px;font-size:13px;max-width:88%;line-height:1.5}
+.msg.u{background:#F3F4F6;margin-left:auto}.msg.a{background:var(--bluebg);border:1px solid #DBEAFE}.msg.a b{color:var(--blued)}
+.toggle{display:flex;align-items:center;gap:9px;font-size:13px;margin:9px 0}
+.sw{width:40px;height:22px;background:#D1D5DB;border-radius:20px;position:relative;cursor:pointer;transition:.2s;flex:0 0 auto}.sw.on{background:var(--green)}.sw>i{position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s}.sw.on>i{left:20px}
+code{background:#F3F4F6;border-radius:4px;padding:1px 5px;font-size:12px;color:#111827}
+pre{background:#0F172A;color:#E2E8F0;border-radius:10px;padding:14px 16px;overflow:auto;font-size:12.5px;line-height:1.6;font-family:"DejaVu Sans Mono",Consolas,monospace;margin:0}
+pre .c1{color:#86EFAC}pre .c2{color:#FCD34D}pre .c3{color:#93C5FD}
+.log{background:#F3F4F6;color:#374151;font-family:"DejaVu Sans Mono",Consolas,monospace;font-size:12px;padding:8px 20px;max-height:100px;overflow:auto;border-top:1px solid var(--line)}
+.log .l{padding:2px 0;border-bottom:1px solid #E5E7EB}.log .l .t{color:#9CA3AF}.log .l b{color:var(--green)}
+.hero{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;position:relative;overflow:hidden}
+.hero h2{margin:0 0 6px;font-size:24px;color:var(--ink)}.hero p{margin:0 0 14px;color:var(--body);max-width:680px;line-height:1.6}
+.hero .arch{position:absolute;right:20px;top:18px;opacity:.5}
+.next{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.next .prev{color:var(--mut);font-size:13px;cursor:pointer;background:none;border:0}
+@media(max-width:860px){.side{display:none}.g2,.g3,.g4{grid-template-columns:1fr 1fr}}
+</style></head>
+<body>
+<div class="app">
+ <aside class="side">
+  <div class="brand">
+   <svg width="30" height="26" viewBox="0 0 40 34"><g fill="none" stroke="#2563EB" stroke-width="2.6"><rect x="1" y="2" width="38" height="3"/><path d="M6 32 V16 a7 7 0 0 1 14 0 V32"/><path d="M22 32 V16 a7 7 0 0 1 14 0 V32"/></g></svg>
+   <div><h1>Aqueduto</h1><div class="tag">Hub de Dados AI-native</div></div>
+  </div>
+  <nav class="nav" id="nav">
+   <a data-tab="home"><span class="num">·</span> Início <span class="dot"></span></a>
+   <div class="sep">Fluxo do dado</div>
+   <a data-tab="connect"><span class="num">1</span> Conectar dados <span class="dot"></span></a>
+   <a data-tab="pipeline"><span class="num">2</span> Camadas de dados <span class="dot"></span></a>
+   <a data-tab="quality"><span class="num">3</span> Qualidade &amp; testes <span class="dot"></span></a>
+   <a data-tab="dash"><span class="num">4</span> Dashboard &amp; métricas <span class="dot"></span></a>
+   <a data-tab="pbi"><span class="num">5</span> Power BI (sync) <span class="dot"></span></a>
+   <a data-tab="ai"><span class="num">6</span> Agentes &amp; IA <span class="dot"></span></a>
+   <div class="sep">Referência</div>
+   <a data-tab="roi"><span class="num">·</span> Resultados <span class="dot"></span></a>
+   <a data-tab="code"><span class="num">·</span> Código (Python) <span class="dot"></span></a>
+  </nav>
+  <div class="foot" id="srcfoot">nenhum dado carregado</div>
+ </aside>
+
+ <div class="main">
+  <div class="top"><div class="crumb" id="crumb">Início</div>
+   <div class="run"><span class="chip" id="pstatus">sem dados</span>
+    <button class="btn" id="runAll">Processar tudo (demo)</button></div>
+  </div>
+
+  <!-- BARRA DE FLUXO: o aqueduto. Os canos enchem conforme o dado corre entre as etapas. -->
+  <div class="flowbar" id="flowbar">
+   <div class="fnode" data-stage="connect"><div class="c">1</div><div class="lab">Fontes</div></div>
+   <div class="fpipe" data-pipe="pipeline"><i></i></div>
+   <div class="fnode" data-stage="pipeline"><div class="c">2</div><div class="lab">Bronze·Silver·Gold</div></div>
+   <div class="fpipe" data-pipe="quality"><i></i></div>
+   <div class="fnode" data-stage="quality"><div class="c">3</div><div class="lab">Qualidade</div></div>
+   <div class="fpipe" data-pipe="dash"><i></i></div>
+   <div class="fnode" data-stage="dash"><div class="c">4</div><div class="lab">Semântico</div></div>
+   <div class="fpipe" data-pipe="pbi"><i></i></div>
+   <div class="fnode" data-stage="pbi"><div class="c">5</div><div class="lab">Power BI</div></div>
+   <div class="fpipe" data-pipe="ai"><i></i></div>
+   <div class="fnode" data-stage="ai"><div class="c">6</div><div class="lab">Agentes &amp; IA</div></div>
+  </div>
+
+  <div class="stage">
+   <!-- HOME -->
+   <section class="view active" id="v-home">
+    <div class="hero">
+     <svg class="arch" width="140" height="52" viewBox="0 0 150 60"><g fill="none" stroke="#CBD5E1" stroke-width="3"><rect x="2" y="2" width="146" height="4"/><path d="M12 58 V28 a14 14 0 0 1 28 0 V58"/><path d="M52 58 V28 a14 14 0 0 1 28 0 V58"/><path d="M92 58 V28 a14 14 0 0 1 28 0 V58"/></g></svg>
+     <h2>Reúne dados dispersos numa base confiável e consultável.</h2>
+     <p>O <b>Aqueduto</b> importa os seus dados, conduz por etapas conectadas (como a água num aqueduto), mede a qualidade e organiza as métricas — para o Power BI e para agentes de IA. Cada etapa <b>alimenta a seguinte</b>, e tudo é <b>calculado sobre os dados que você importa</b>.</p>
+     <button class="btn" onclick="go('connect')">Começar pelo fluxo</button>
+     <button class="btn ghost" id="homeRun" style="margin-left:8px">Processar um conjunto de exemplo</button>
+    </div>
+    <div class="honest" style="margin-top:16px"><b>Transparência:</b> este protótipo <b>não usa números fixos nem inventados</b>. Todos os resultados são <b>calculados</b> a partir do arquivo importado (ou de um conjunto de exemplo rotulado). O agente só responde com base nesses dados.</div>
+    <div class="grid g3">
+     <div class="card"><h3>Roda com os seus dados</h3><div class="k">conector integrado (Databricks, ADF, Fabric), API REST ou CSV — o software calcula sobre o que entra.</div></div>
+     <div class="card"><h3>Confiável e medido</h3><div class="k">mede nulos, duplicatas, outliers e a confiabilidade sobre o dado real.</div></div>
+     <div class="card"><h3>Uma definição por métrica</h3><div class="k">o modelo semântico dá uma definição única de cada métrica para toda a empresa.</div></div>
+    </div>
+   </section>
+
+   <!-- 1 CONNECT -->
+   <section class="view" id="v-connect">
+    <h2 class="h2">1 · Conectar dados</h2>
+    <div class="io">Entrada: fontes da empresa &nbsp;·&nbsp; Saída: <b>camada Bronze</b> → alimenta a etapa 2.</div>
+    <div class="whatis"><b>O que faz:</b> traz os dados para dentro do hub. Três formas — todas orientadas à stack da vaga: <b>conector integrado</b> (Azure Databricks, ADF, Microsoft Fabric, ERP/CRM), <b>API REST</b>, ou <b>arquivo CSV</b>.</div>
+    <div class="card">
+     <div class="modes">
+      <button class="mode on" data-mode="int">Conector integrado</button>
+      <button class="mode" data-mode="api">API REST</button>
+      <button class="mode" data-mode="csv">Arquivo CSV</button>
+     </div>
+     <div id="m-int">
+      <div class="k" style="margin-bottom:8px">Clique num conector para importar (dados de exemplo, rotulados). Em produção, é a conexão real com a plataforma.</div>
+      <div class="conn" id="conns">
+       <div class="c" data-src="Azure Databricks"><span class="dot2"></span> Azure Databricks <span class="st">conectar</span></div>
+       <div class="c" data-src="Azure Data Factory"><span class="dot2"></span> Azure Data Factory (ADF) <span class="st">conectar</span></div>
+       <div class="c" data-src="Microsoft Fabric"><span class="dot2"></span> Microsoft Fabric <span class="st">conectar</span></div>
+       <div class="c" data-src="ERP TOTVS/SAP"><span class="dot2"></span> ERP · TOTVS / SAP <span class="st">conectar</span></div>
+      </div>
+     </div>
+     <div id="m-api" style="display:none">
+      <div class="k" style="margin-bottom:8px">Conexão por API (ilustrativa neste protótipo — para dados reais use o CSV).</div>
+      <div class="field"><select id="apimethod"><option>GET</option><option>POST</option></select>
+       <input id="apiurl" value="https://api.empresa.com/v1/vendas" placeholder="endpoint">
+       <input id="apikey" placeholder="x-api-key (opcional)">
+       <button class="btn ghost" id="apiGo">Importar via API (exemplo)</button></div>
+     </div>
+     <div id="m-csv" style="display:none">
+      <div class="k" style="margin-bottom:8px">Importe um CSV real. Colunas reconhecidas (opcionais): <code>setor, valor, custo, cpf, churn</code> — outras também funcionam.</div>
+      <div class="field"><input type="file" id="csv" accept=".csv,text/csv"><button class="btn ghost" id="dlSample">Baixar CSV de exemplo</button></div>
+     </div>
+     <div id="ingestout" class="muted-box" style="margin-top:14px">Escolha uma forma de importar para começar.</div>
+    </div>
+    <div class="next"><button class="prev" onclick="go('home')">← Início</button><button class="btn" onclick="go('pipeline')">Continuar → Camadas de dados</button></div>
+   </section>
+
+   <!-- 2 PIPELINE -->
+   <section class="view" id="v-pipeline">
+    <h2 class="h2">2 · Camadas de dados</h2>
+    <div class="io">Entrada: dado bruto (etapa 1) &nbsp;·&nbsp; Saída: <b>tabelas Gold</b> → alimentam Qualidade e Dashboard.</div>
+    <div class="whatis"><b>O que faz:</b> organiza o dado em camadas com propósito. <b>Bronze</b> = dado cru como veio (histórico auditável). <b>Silver</b> = limpo, sem duplicatas e validado por <i>data contracts</i>. <b>Gold</b> = tabelas de negócio prontas. Contado sobre o seu dado.</div>
+    <div id="pempty" class="muted-box">Importe dados na etapa 1 para materializar as camadas.</div>
+    <div id="pbody" style="display:none">
+     <div class="grid g3">
+      <div class="card"><span class="tag bronze">BRONZE</span><h3 style="margin-top:8px">Dado cru</h3><div class="v" id="brn">—</div><div class="k">linhas importadas</div></div>
+      <div class="card"><span class="tag silver">SILVER</span><h3 style="margin-top:8px">Limpo &amp; validado</h3><div class="v" id="slv">—</div><div class="k">válidas sob contrato</div></div>
+      <div class="card"><span class="tag gold">GOLD</span><h3 style="margin-top:8px">Pronto p/ negócio</h3><div class="v" id="gld">—</div><div class="k">grupos agregados</div></div>
+     </div>
+     <div class="k" id="tinfo" style="margin-top:10px"></div>
+    </div>
+    <div class="next"><button class="prev" onclick="go('connect')">← Conectar</button><button class="btn" onclick="go('quality')">Continuar → Qualidade</button></div>
+   </section>
+
+   <!-- 3 QUALITY -->
+   <section class="view" id="v-quality">
+    <h2 class="h2">3 · Qualidade, testes &amp; observabilidade</h2>
+    <div class="io">Entrada: camadas (etapa 2) &nbsp;·&nbsp; Saída: <b>confiabilidade medida</b> → garante o que vai ao Dashboard.</div>
+    <div class="whatis"><b>O que faz:</b> mede a confiança do dado, calculado sobre o seu arquivo: nulos na coluna-chave, duplicatas exatas, outliers (|z|&gt;3), colunas com tipos mistos e a confiabilidade resultante.</div>
+    <div id="qempty" class="muted-box">Materialize as camadas (etapa 2) para medir a qualidade.</div>
+    <div id="qbody" style="display:none">
+     <div class="grid g4">
+      <div class="card"><div class="k">Nulos <span id="q_nullc"></span></div><div class="v" id="q_null">—</div></div>
+      <div class="card"><div class="k">Duplicatas</div><div class="v" id="q_dup">—</div></div>
+      <div class="card"><div class="k">Outliers <span id="q_outc"></span></div><div class="v" id="q_out">—</div></div>
+      <div class="card"><div class="k">Tipos mistos</div><div class="v" id="q_typ">—</div></div>
+     </div>
+     <div class="card" style="margin-top:14px"><div class="k" style="margin-bottom:6px">Confiabilidade (linhas válidas / total) <span id="relx" style="float:right;color:var(--green);font-weight:700"></span></div>
+      <div class="bar"><i id="relbar" style="width:0"></i></div><div class="k" id="qinfo" style="margin-top:8px"></div></div>
+    </div>
+    <div class="next"><button class="prev" onclick="go('pipeline')">← Camadas</button><button class="btn" onclick="go('dash')">Continuar → Dashboard</button></div>
+   </section>
+
+   <!-- 4 DASHBOARD -->
+   <section class="view" id="v-dash">
+    <h2 class="h2">4 · Dashboard &amp; modelo semântico</h2>
+    <div class="io">Entrada: Gold confiável (etapas 2–3) &nbsp;·&nbsp; Saída: <b>métricas certificadas</b> → vão ao Power BI e aos Agentes.</div>
+    <div class="whatis"><b>O que faz:</b> calcula as métricas corporativas sobre o Gold — uma definição única de cada métrica — e mostra a leitura. Só aparece o que é calculável a partir das suas colunas.</div>
+    <div id="dempty" class="muted-box">Processe os dados para gerar as métricas.</div>
+    <div id="dbody" style="display:none">
+     <div class="grid g4" id="metricCards"></div>
+     <div class="grid g2" style="margin-top:14px">
+      <div class="card"><h3 id="chartTitle">Total por grupo</h3><div class="bars" id="chart"></div></div>
+      <div class="card"><h3>Leitura dos dados (calculada)</h3><div id="story" style="font-size:13px;line-height:1.6"></div></div>
+     </div>
+    </div>
+    <div class="next"><button class="prev" onclick="go('quality')">← Qualidade</button><button class="btn" onclick="go('pbi')">Continuar → Power BI</button></div>
+   </section>
+
+   <!-- 5 POWER BI -->
+   <section class="view" id="v-pbi">
+    <h2 class="h2">5 · Sincronização com o Power BI</h2>
+    <div class="io">Entrada: Gold + semântico (etapa 4) &nbsp;·&nbsp; Saída: <b>dataset pronto</b> para o Power BI.</div>
+    <div class="whatis"><b>O que faz:</b> exporta o Gold + modelo semântico já pronto para o Power BI montar o dashboard sem retrabalho. Aqui você baixa o <b>Gold em CSV</b> — o mesmo que iria para o Power BI.</div>
+    <div class="card"><div class="field"><button class="btn" id="pbi">Preparar dataset Gold para o Power BI</button>
+      <button class="btn ghost" id="dlGold" disabled>Baixar Gold (CSV)</button></div>
+     <div id="pbiout" class="muted-box" style="margin-top:12px">Processe os dados para preparar o dataset Gold.</div></div>
+    <div class="next"><button class="prev" onclick="go('dash')">← Dashboard</button><button class="btn" onclick="go('ai')">Continuar → Agentes &amp; IA</button></div>
+   </section>
+
+   <!-- 6 AI -->
+   <section class="view" id="v-ai">
+    <h2 class="h2">6 · Agentes &amp; IA operacional</h2>
+    <div class="io">Entrada: métricas do Gold (etapa 4) &nbsp;·&nbsp; Saída: <b>respostas e ações</b> baseadas no dado.</div>
+    <div class="whatis"><b>O que faz:</b> a empresa pluga a própria chave de IA. O agente responde <b>apenas com base no dado importado</b> — se não estiver nos dados, ele diz que não consta. Sem inventar.</div>
+    <div class="card">
+     <div class="field"><select id="llm"><option>Azure OpenAI</option><option>Claude</option><option>Gemini</option><option>Llama (Ollama)</option></select>
+      <input id="llmkey" placeholder="chave de API da IA da empresa"><span class="tag ok" id="llmst" style="display:none">conectado</span></div>
+     <div class="chat" id="chat" style="margin-top:12px"><div class="msg a"><b>Aqueduto ›</b> Importe dados e pergunte. Ex.: “qual grupo tem o maior churn?”, “qual a receita total?”</div></div>
+     <div class="field"><input id="q" type="text" style="flex:1" value="qual grupo tem o maior churn?" placeholder="pergunta sobre os seus dados…"><button class="btn" id="ask">Perguntar</button></div>
+    </div>
+    <div class="card" style="margin-top:14px"><h3>Automação (agentes agendados)</h3>
+     <div class="toggle"><span class="sw on" data-sw><i></i></span> Atualizar a camada Gold diariamente</div>
+     <div class="toggle"><span class="sw on" data-sw><i></i></span> Alertar quando surgirem anomalias</div>
+     <div class="toggle"><span class="sw" data-sw><i></i></span> Manter dicionário de métricas + lineage</div>
+    </div>
+    <div class="next"><button class="prev" onclick="go('pbi')">← Power BI</button><button class="btn ghost" onclick="go('roi')">Ver resultados →</button></div>
+   </section>
+
+   <!-- ROI -->
+   <section class="view" id="v-roi">
+    <h2 class="h2">Resultados (medidos sobre o seu dado)</h2>
+    <div class="whatis"><b>O que faz:</b> resume o que foi processado — números contados, não estimados.</div>
+    <div id="rempty" class="muted-box">Processe dados para ver os resultados.</div>
+    <div id="rbody" style="display:none"><div class="grid g4">
+     <div class="card"><div class="k">Linhas processadas</div><div class="v" id="roi1">—</div><div class="k">Bronze → Silver</div></div>
+     <div class="card"><div class="k">Confiabilidade do dado</div><div class="v" id="roi2">—</div><div class="k">linhas válidas / total</div></div>
+     <div class="card"><div class="k">Verificações aplicadas</div><div class="v" id="roi3">—</div><div class="k">contratos + testes</div></div>
+     <div class="card"><div class="k">Fonte de verdade</div><div class="v">1</div><div class="k">um modelo semântico</div></div>
+    </div></div>
+   </section>
+
+   <!-- CODE -->
+   <section class="view" id="v-code">
+    <h2 class="h2">Código — verificável, testável, empírico</h2>
+    <div class="whatis"><b>O que faz:</b> o motor real do Aqueduto em Python (a mesma lógica que roda aqui). Escala 1:1 para PySpark/Delta no <b>Azure Databricks</b>. Reprodutível: <code>python3 aqueduto_engine.py</code>.</div>
+    <div class="card"><pre><span class="c1"># silver_contract.py — data contract
